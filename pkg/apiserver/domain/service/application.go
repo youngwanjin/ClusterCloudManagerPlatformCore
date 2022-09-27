@@ -37,6 +37,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/oam-dev/kubevela/apis/core.oam.dev/common"
+	commontypes "github.com/oam-dev/kubevela/apis/core.oam.dev/common"
 	"github.com/oam-dev/kubevela/apis/core.oam.dev/v1beta1"
 	velatypes "github.com/oam-dev/kubevela/apis/types"
 	"github.com/oam-dev/kubevela/pkg/apiserver/domain/model"
@@ -99,6 +100,7 @@ type ApplicationService interface {
 	ListApplicationTriggers(ctx context.Context, app *model.Application) ([]*apisv1.ApplicationTriggerBase, error)
 	DeleteApplicationTrigger(ctx context.Context, app *model.Application, triggerName string) error
 	CreateNormalApplication(context.Context, v1beta1.Application) (*apisv1.CreateNormalResponse, error)
+	ListNormalApplications(context.Context) ([]*apisv1.ListNormalResponse,error)
 }
 
 type applicationServiceImpl struct {
@@ -176,6 +178,57 @@ func listApp(ctx context.Context, ds datastore.DataStore, listOptions apisv1.Lis
 		list = append(list, appModel)
 	}
 	return list, nil
+}
+
+// ListNormalApplication for check  application crd resource not configmap
+func (c *applicationServiceImpl) ListNormalApplications(ctx context.Context)([]*apisv1.ListNormalResponse, error)  {
+	applist := v1beta1.ApplicationList{}
+	var ResponseList = []*apisv1.ListNormalResponse{}
+	if err := c.KubeClient.List(ctx, &applist); err != nil {
+		return nil, err
+	}
+	for _, a := range applist.Items {
+		service := map[string]commontypes.ApplicationComponentStatus{}
+		for _, s := range a.Status.Services {
+			service[s.Name] = s
+		}
+
+		for _, cmp := range a.Spec.Components {
+			var appName = a.Name
+
+			if appName == "" {
+				appName = cmp.Name
+			}
+
+			var healthy, status, cluster, namespace string
+			if s, ok := service[cmp.Name]; ok {
+				healthy = getHealthString(s.Healthy)
+				status = s.Message
+				cluster = s.Cluster
+				namespace = s.Namespace
+			}
+			var Response =  &apisv1.ListNormalResponse{
+				AppName:    appName,
+				AppType:    cmp.Type,
+				Cluster:    cluster,	Namepsace:  namespace,
+				Phase:      a.Status.Phase,
+				Healthy:    healthy,
+				Status:     status,
+				CreateTime: a.CreationTimestamp,
+			}
+			ResponseList = append(ResponseList, Response)
+		}
+	}
+
+	return  ResponseList, nil
+
+}
+
+func getHealthString(healthy bool) string {
+	if healthy {
+		return "healthy"
+	}
+	return "unhealthy"
 }
 
 // ListApplications list applications
@@ -1681,7 +1734,7 @@ func (c *applicationServiceImpl) CreateNormalApplication(ctx context.Context, ap
 		}
 		return nil, err
 	}
-	return nil,bcode.ErrApplicationExist
+	return nil, bcode.ErrApplicationExist
 
 }
 

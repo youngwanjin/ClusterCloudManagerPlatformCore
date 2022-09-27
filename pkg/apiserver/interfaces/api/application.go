@@ -18,17 +18,16 @@ package api
 
 import (
 	"context"
-	"strconv"
 	"encoding/json"
 	"github.com/oam-dev/kubevela/apis/core.oam.dev/v1beta1"
+	"github.com/oam-dev/kubevela/pkg/apiserver/domain/model"
 	"github.com/oam-dev/kubevela/pkg/apiserver/utils"
 	"io/ioutil"
+	"strconv"
 	"strings"
 
 	restfulspec "github.com/emicklei/go-restful-openapi/v2"
 	"github.com/emicklei/go-restful/v3"
-
-	"github.com/oam-dev/kubevela/pkg/apiserver/domain/model"
 	"github.com/oam-dev/kubevela/pkg/apiserver/domain/service"
 	apis "github.com/oam-dev/kubevela/pkg/apiserver/interfaces/api/dto/v1"
 	"github.com/oam-dev/kubevela/pkg/apiserver/utils/bcode"
@@ -68,6 +67,13 @@ func (c *applicationAPIInterface) GetWebServiceRoute() *restful.WebService {
 		Returns(200, "OK", apis.ListApplicationResponse{}).
 		Returns(400, "Bad Request", bcode.Bcode{}).
 		Writes(apis.ListApplicationResponse{}))
+
+	ws.Route(ws.GET("/betav1").To(c.listNormalApplications).
+		Doc("list all applications").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Returns(200, "OK", apis.ListNormalResponseList{}).
+		Returns(400, "Bad Request", bcode.Bcode{}).
+		Writes(apis.ListNormalResponseList{}))
 
 	ws.Route(ws.POST("/").To(c.createApplication).
 		Doc("create one application ").
@@ -650,6 +656,20 @@ func (c *applicationAPIInterface) listApplications(req *restful.Request, res *re
 		return
 	}
 	if err := res.WriteEntity(apis.ListApplicationResponse{Applications: apps}); err != nil {
+		bcode.ReturnError(req, res, err)
+		return
+	}
+}
+
+func (c *applicationAPIInterface) listNormalApplications(req *restful.Request, res *restful.Response) {
+
+	apps, err := c.ApplicationService.ListNormalApplications(req.Request.Context())
+
+	if err != nil {
+		bcode.ReturnError(req, res, err)
+		return
+	}
+	if err := res.WriteEntity(apis.ListNormalResponseList{Applications: apps}); err != nil {
 		bcode.ReturnError(req, res, err)
 		return
 	}

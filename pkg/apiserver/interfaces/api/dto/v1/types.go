@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	"helm.sh/helm/v3/pkg/repo"
@@ -1469,4 +1470,20 @@ type CreateNormalResponse struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
 	Status    string `json:"status"`
+}
+
+//table.AddRow(appName,cmp.Type, cluster, namespace, a.Status.Phase, healthy, status, a.CreationTimestamp)
+type ListNormalResponse struct {
+	AppName    string                  `json:"appname"`
+	AppType    string                  `json:"apptype"`
+	Cluster    string                  `json:"cluster"`
+	Namepsace  string                  `json:"namespace"`
+	Phase      common.ApplicationPhase `json:"phase"`
+	Healthy    string                  `json:"healthy"`
+	Status     string                  `json:"status"`
+	CreateTime v1.Time                   `json:"createtime"`
+}
+
+type ListNormalResponseList struct {
+	Applications interface{}
 }
